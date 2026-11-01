@@ -1,0 +1,3 @@
+LIBRARY RdpGameMouseClient
+EXPORTS
+    VirtualChannelGetInstance

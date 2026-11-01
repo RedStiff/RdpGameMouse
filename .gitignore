@@ -1,0 +1,6 @@
+out/
+obj/
+release/
+*.obj
+*.lib
+*.exp
