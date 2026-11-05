@@ -10,7 +10,11 @@
 // Протокол: агент → клієнт: 1 байт (1 = захопити, 0 = відпустити), шле кожні ~200 мс.
 //           клієнт → агент: записи по 16 байт {int32 MOUSEEVENTF_*, int32 dx, int32 dy, int32 mouseData}.
 // Якщо від агента немає повідомлень понад 1 с, курсор відпускається.
+//
+// Звук з віддаленої машини (канал RGAUDIO) — у rgm_audio_client.cpp.
 
+#include "com_object.h"
+#include "rgm_audio_client.h"
 #include <windows.h>
 #include <tsvirtualchannels.h>
 #include <atomic>
@@ -28,30 +32,6 @@ static std::atomic<bool> g_captureRequested{false};
 static std::atomic<DWORD> g_lastServerMsg{0};
 static std::atomic<bool> g_stop{false};
 static HANDLE g_worker;
-
-template <class I>
-class ComObject : public I {
-    LONG ref_ = 1;
-
-public:
-    virtual ~ComObject() {}
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
-        if (!ppv) return E_POINTER;
-        if (riid == __uuidof(IUnknown) || riid == __uuidof(I)) {
-            *ppv = static_cast<I*>(this);
-            AddRef();
-            return S_OK;
-        }
-        *ppv = nullptr;
-        return E_NOINTERFACE;
-    }
-    ULONG STDMETHODCALLTYPE AddRef() override { return InterlockedIncrement(&ref_); }
-    ULONG STDMETHODCALLTYPE Release() override {
-        LONG r = InterlockedDecrement(&ref_);
-        if (r == 0) delete this;
-        return r;
-    }
-};
 
 static void SetChannel(IWTSVirtualChannel* ch) {
     std::lock_guard<std::mutex> lock(g_channelLock);
@@ -278,6 +258,7 @@ public:
         if (FAILED(hr)) return hr;
         g_stop = false;
         g_worker = CreateThread(nullptr, 0, Worker, nullptr, 0, nullptr);
+        AudioInitialize(mgr);  // без звуку миша все одно працює
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE Connected() override { return S_OK; }
@@ -286,6 +267,7 @@ public:
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE Terminated() override {
+        AudioTerminate();
         g_stop = true;
         if (g_worker) {
             WaitForSingleObject(g_worker, 2000);

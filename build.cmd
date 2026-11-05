@@ -15,15 +15,15 @@ if not exist obj mkdir obj
 
 set "CFLAGS=/nologo /O2 /MT /EHsc /W4 /utf-8 /DUNICODE /D_UNICODE /Foobj\"
 
-cl %CFLAGS% client\rgm_client.cpp /LD ^
+cl %CFLAGS% client\rgm_client.cpp client\rgm_audio_client.cpp /LD ^
    /link /DEF:client\rgm_client.def /IMPLIB:obj\rgm_client.lib user32.lib /OUT:out\RdpGameMouseClient.dll || exit /b 1
 
 rem Console agent: for running by hand or from a per-game launcher.
-cl %CFLAGS% server\rgm_agent.cpp ^
+cl %CFLAGS% server\rgm_agent.cpp server\rgm_audio.cpp ^
    /link /OUT:out\RdpGameMouseAgent.exe || exit /b 1
 
 rem Same agent without a console window, for the system-wide autostart.
-cl %CFLAGS% server\rgm_agent.cpp ^
+cl %CFLAGS% server\rgm_agent.cpp server\rgm_audio.cpp ^
    /link /SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup /OUT:out\RdpGameMouseSystem.exe || exit /b 1
 
 echo Build OK

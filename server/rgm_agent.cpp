@@ -5,7 +5,7 @@
 // SendInput, тож гра бачить звичайну мишу, а не абсолютні координати RDP.
 //
 // Використання: RdpGameMouseAgent.exe [--process ІмяПроцесу] [--key Ctrl+Alt+F12] [--mode auto|always|off]
-//                                     [--exit-with-game] [--log файл] [--fullscreen [--exclude a,b,c]]
+//                                     [--exit-with-game] [--log файл] [--fullscreen [--exclude a,b,c]] [--audio]
 //   --process         процес гри без .exe; без нього працює з будь-яким активним вікном.
 //   --fullscreen      загальносистемний режим: ціль — будь-яке вікно на весь монітор, крім
 //                     процесів з --exclude (за замовчуванням браузери й відеоплеєри). Один агент на сеанс.
@@ -14,7 +14,9 @@
 //                     (модифікатори Ctrl/Alt/Shift + F1–F24, літера/цифра, ScrollLock, Pause, Insert, Home, End, PageUp, PageDown).
 //   --exit-with-game  чекати запуску гри (до 2 хв) і завершитися, коли її закрито.
 //   --log             журнал рішень авто-режиму (для діагностики).
+//   --audio           передавати звук плагіну каналом RGAUDIO з малою затримкою (див. rgm_audio.cpp).
 
+#include "rgm_audio.h"
 #include <windows.h>
 #include <wtsapi32.h>
 #include <pchannel.h>
@@ -421,6 +423,8 @@ static void Out(const wchar_t* fmt, ...) {
     Log(L"%ls", buf);
 }
 
+static void AudioMessage(const wchar_t* msg) { Out(L"%ls", msg); }
+
 int wmain(int argc, wchar_t** argv) {
     // Фонова збірка (без консолі) має недійсний stdout.
     g_console = _fileno(stdout) >= 0;
@@ -429,7 +433,7 @@ int wmain(int argc, wchar_t** argv) {
     std::wstring keyName = L"Ctrl+Alt+F12";
     std::wstring logPath;
     Mode mode = ModeAuto;
-    bool exitWithGame = false;
+    bool exitWithGame = false, audio = false;
     for (int i = 1; i < argc; i++) {
         std::wstring a = argv[i];
         if (a == L"--fullscreen") {
@@ -449,6 +453,8 @@ int wmain(int argc, wchar_t** argv) {
             mode = m == L"always" ? ModeAlways : m == L"off" ? ModeOff : ModeAuto;
         } else if (a == L"--exit-with-game") {
             exitWithGame = true;
+        } else if (a == L"--audio") {
+            audio = true;
         } else {
             Out(L"Невідомий параметр: %ls", a.c_str());
             return 2;
@@ -475,6 +481,7 @@ int wmain(int argc, wchar_t** argv) {
         g_fullscreen ? L"будь-яке повноекранне вікно" : g_process.empty() ? L"будь-яке активне вікно" : g_process.c_str(),
         keyName.c_str());
     Out(L"Режим: %ls", kModeNames[mode]);
+    if (audio) StartAudioForwarding(AudioMessage);
 
     Channel ch;
     DWORD started = GetTickCount(), lastGameCheck = 0, lastOpenTry = 0, lastStateSent = 0;
